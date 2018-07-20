@@ -1,13 +1,18 @@
 package io.caster.simplemvp.view.activity;
 
 import android.os.Bundle;
+import android.os.Environment;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
+
+import java.io.File;
+import java.lang.reflect.Method;
 
 import io.caster.simplemvp.R;
 
@@ -46,9 +51,31 @@ public class MainActivity extends AppCompatActivity {
 
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
-            return true;
+            generateCoverageReport();
+            //return true;
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+
+    static void generateCoverageReport() {
+        String TAG = "jacoco";
+        // use reflection to call emma dump coverage method, to avoid
+        // always statically compiling against emma jar
+        Log.d("StorageSt", Environment.getExternalStorageState());
+        String coverageFilePath = Environment.getExternalStorageDirectory() + File.separator + "coverage.exec";
+        File coverageFile = new File(coverageFilePath);
+        try {
+            coverageFile.createNewFile();
+            Class<?> emmaRTClass = Class.forName("com.vladium.emma.rt.RT");
+            Method dumpCoverageMethod = emmaRTClass.getMethod("dumpCoverageData",
+                    coverageFile.getClass(), boolean.class, boolean.class);
+
+            dumpCoverageMethod.invoke(null, coverageFile, true, false);
+            Log.e(TAG, "generateCoverageReport: ok");
+        } catch (Exception  e) {
+            throw new RuntimeException("Is emma jar on classpath?", e);
+        }
     }
 }

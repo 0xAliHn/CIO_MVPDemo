@@ -2,6 +2,7 @@ package io.caster.simplemvp;
 
 import android.app.Application;
 
+
 public class MvpApplication extends Application {
 
     private AppComponent component;

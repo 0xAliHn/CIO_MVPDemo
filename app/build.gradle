@@ -1,8 +1,20 @@
 apply plugin: 'com.android.application'
+apply plugin: 'jacoco'
+
+jacoco{
+    toolVersion = "0.7.1.201405082137" // try a newer version if you can
+}
+
 
 android {
+    sourceSets {
+        main {
+            resources.includes = ['**/jacoco-agent.properties']
+        }
+    }
+
     compileSdkVersion 27
-    buildToolsVersion '27.0.0'
+    buildToolsVersion '27.0.3'
 
     defaultConfig {
         applicationId "io.caster.simplemvp"
@@ -10,22 +22,155 @@ android {
         targetSdkVersion 27
         versionCode 1
         versionName "1.0"
+
+        testInstrumentationRunner 'android.support.test.runner.AndroidJUnitRunner'
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
+        debug{
+            testCoverageEnabled = true
+            debuggable true
+        }
     }
+
+    testOptions {
+        unitTests.all {
+            jacoco {
+                includeNoLocationClasses = true
+            }
+        }
+    }
+
 }
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
     testCompile 'junit:junit:4.12'
     testCompile 'org.mockito:mockito-core:2.10.0'
-    compile 'com.android.support:appcompat-v7:27.0.0'
-    compile 'com.android.support:design:27.0.0'
-    compile 'com.jakewharton:butterknife:8.5.1'
+    androidTestCompile 'org.mockito:mockito-core:1.10.19'
+    androidTestCompile 'org.hamcrest:hamcrest-library:1.3'
+    androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2-alpha1'
+    androidTestUtil 'com.android.support.test:orchestrator:1.0.2-alpha1'
+    androidTestCompile('com.android.support.test:runner:0.5') {
+        exclude module: 'support-annotations'
+    }
+    testImplementation 'org.robolectric:robolectric:3.8'
+    androidTestCompile "com.google.dexmaker:dexmaker:1.2"
+    androidTestCompile "com.google.dexmaker:dexmaker-mockito:1.2"
+
+    compile 'com.android.support:appcompat-v7:27.1.0'
+    compile 'com.android.support:design:27.1.0'
+    compile 'com.jakewharton:butterknife:8.8.1'
     compile 'com.google.dagger:dagger:2.10'
     annotationProcessor 'com.google.dagger:dagger-compiler:2.10'
+
+
+}
+
+
+project.afterEvaluate {
+    // Grab all build types and product flavors
+    def buildTypes = android.buildTypes.collect { type ->
+        type.name
+    }
+
+    def productFlavors = android.productFlavors.collect { flavor ->
+        flavor.name
+    }
+    // When no product flavors defined, use empty
+    if (!productFlavors) productFlavors.add('')
+
+    //iterate over the flavors
+
+    productFlavors.each {
+
+        productFlavorName ->
+//iterate over build types like debug,release,prod etc.
+            buildTypes.each {
+
+                buildTypeName ->
+                    //sourceNameâ€Šâ€” e.g. freeDebug ,sourcePathâ€Šâ€”â€Še.g. free/debug
+                    def sourceName, sourcePath
+                    if (!productFlavorName) {
+                        sourceName = sourcePath = "${buildTypeName}"
+                    } else {
+                        sourceName = "${productFlavorName}${buildTypeName.capitalize()}"
+                        sourcePath = "${productFlavorName}/${buildTypeName}"
+                    }
+                    // testTaskNameâ€Šâ€”â€Š e.g. testFreeDebugtest task that the coverage task depends on,
+                    def testTaskName = "test${sourceName.capitalize()}UnitTest"
+                    // Create coverage task of form 'testFlavorTypeCoverage' depending on 'testFlavorTypeUnitTest'
+                    task "${testTaskName}Coverage"(type: JacocoReport, dependsOn: "$testTaskName") {
+                        group = "Reporting"
+                        description = "Generate Jacoco coverage reports on the ${sourceName.capitalize()} build."
+                        classDirectories = fileTree(
+                                dir: "${project.buildDir}/intermediates/javac/${sourcePath}",
+                                excludes: [
+                                        '**/R.class',
+                                        '**/R$*.class',
+                                        '**/*$ViewInjector*.*',
+                                        '**/*$ViewBinder*.*',
+                                        '**/BuildConfig.*',
+                                        '**/Manifest*.*',
+                                        'android/**/*.*',
+                                        '**/Lambda$*.class', //Retrolambda
+                                        '**/Lambda.class',
+                                        '**/ * Lambda.class',
+                                        '**/*Lambda*.class',
+                                        '**/*Lambda*.*',
+                                        '**/*Builder.*',
+                                        '**/*_MembersInjector.class', //Dagger2 generated code
+                                        '**/*_MembersInjector*.*', //Dagger2 generated code
+                                        '**/ *_ * Factory*. * ', //Dagger2 generated code
+                                        '**/*Component*.*', //Dagger2 generated code
+                                        '**/*Module*.*', //Dagger2 generated code
+                                        'io/**/*.*'
+                                ],
+                                // include: []
+                        ) + fileTree(
+                                dir: "${project.buildDir}/tmp/kotlin-classes/${sourcePath}",
+                                excludes: [
+                                        '**/R.class',
+                                        '**/R$*.class',
+                                        '**/*$ViewInjector*.*',
+                                        '**/*$ViewBinder*.*',
+                                        '**/BuildConfig.*',
+                                        '**/Manifest*.*',
+                                        'android/**/*.*',
+                                        '**/Lambda$*.class', //Retrolambda
+                                        '**/Lambda.class',
+                                        '**/ * Lambda.class',
+                                        '**/*Lambda*.class',
+                                        '**/*Lambda*.*',
+                                        '**/*Builder.*',
+                                        '**/*_MembersInjector.class', //Dagger2 generated code
+                                        '**/*_MembersInjector*.*', //Dagger2 generated code
+                                        '**/ *_ * Factory*. * ', //Dagger2 generated code
+                                        '**/*Component*.*', //Dagger2 generated code
+                                        '**/*Module*.*', //Dagger2 generated code
+                                        'io/**/*.*'
+                                ],
+                                // include: []
+                        )
+
+
+                        def coverageSourceDirs = [
+                                "src/main/java",
+                                "src/$productFlavorName/java",
+                                "src/$buildTypeName/java"
+                        ]
+                        additionalSourceDirs = files(coverageSourceDirs)
+                        sourceDirectories = files(coverageSourceDirs)
+                        executionData = files("${project.buildDir}/jacoco/${testTaskName}.exec")
+                        reports {
+                            //enables and disable the type of file you need
+                            xml.enabled = false
+                            html.enabled = true
+                        }
+                    }
+            }
+    }
 }
